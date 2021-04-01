@@ -4,8 +4,7 @@ import sys
 
 import fitz
 from PyQt5 import QtWebEngineWidgets, QtCore, QtGui
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QCheckBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
 
 from qt import Ui_MainWindow
 
@@ -63,63 +62,14 @@ class App(QMainWindow, Ui_MainWindow):
             self.pdfview = QtWebEngineWidgets.QWebEngineView()
             self.verticalLayout.addWidget(self.pdfview)
 
-    def add_Image(self, Image):
-        lay = self.verticalLayout
-        lbl = QLabel(self)
-        pixmap = QPixmap()
-        pixmap.load(Image)
-        pixmapResized = pixmap.scaledToWidth(500)
-        lbl.setPixmap(pixmapResized)
-        lay.addWidget(lbl)
-        box = QCheckBox(re.sub("tmp/", "", re.sub(".png", "", Image)), self)
-        box.stateChanged.connect(self.CheckBoxStateChanged)
-
-        box.setObjectName(box.text())
-        self.checkBoxes.append(box)
-        lay.addWidget(box)
-
     def open_file_list(self, index):
-        fname = self.model.itemFromIndex(index).text()
-        if (len(fname) > 0):
-            pdf = "file:///" + fname
+        self.fname = self.model.itemFromIndex(index).text()
+        if (len(self.fname) > 0):
+            pdf = "file:///" + self.fname
             self.verticalLayout.itemAt(0).widget().load(QtCore.QUrl.fromUserInput('%s?file=%s' % (self.PDFJS, pdf)))
             self.lineEdit.textChanged[str].connect(self.OnLineEdit_web)
-            self.pageCount = len(fitz.open(fname))
-            self.ConvertButton.clicked.connect(lambda: self.Convert_web(fname))
-
-    def open_file_handly(self, fname):
-        self.ConvertButton.clicked.connect(self.Convert)
-        folder = 'tmp'
-        self.lineEdit.textChanged[str].connect(self.OnLineEdit)
-        for i in range(0, self.verticalLayout.count()):
-            self.verticalLayout.itemAt(i).widget().deleteLater()
-        for the_file in os.listdir(folder):
-            file_path = os.path.join(folder, the_file)
-            try:
-                if os.path.isfile(file_path):
-                    os.unlink(file_path)
-            except Exception as e:
-                print(e)
-
-        if (len(fname[0]) > 2):
-            doc = fitz.open(fname[0])
-
-            for i in range(1, len(doc)):
-                for img in doc.getPageImageList(i):
-                    xref = img[0]
-                    pix = fitz.Pixmap(doc, xref)
-                    if pix.n < 5:  # this is GRAY or RGB
-                        pix.writePNG("tmp/%s.png" % (i))
-                    else:  # CMYK: convert to RGB first
-                        pix1 = fitz.Pixmap(fitz.csRGB, pix)
-                        pix1.writePNG("tmp/%s.png" % (i))
-                        pix1 = None
-                    pix = None
-
-            for i in range(1, len(doc)):
-                self.add_Image("tmp/" + str(i) + ".png")
-
-            self.pageCount = len(doc)
+            self.pageCount = len(fitz.open(self.fname))
+            self.ConvertButton.clicked.connect(self.Convert_web)
 
     def add_file(self):
         fname = QFileDialog.getOpenFileNames(self, 'Open file',
@@ -190,7 +140,7 @@ class App(QMainWindow, Ui_MainWindow):
         for choise in self.chosenPages:
             self.textBrowser.append(str(choise))
 
-    def Convert_web(self, fname):
+    def Convert_web(self):
         folder = "result"
         for the_file in os.listdir(folder):
             file_path = os.path.join(folder, the_file)
@@ -200,18 +150,23 @@ class App(QMainWindow, Ui_MainWindow):
             except Exception as e:
                 print(e)
 
-        if (len(fname) > 2):
-            doc = fitz.open(fname)
+        if (len(self.fname) > 2):
+            doc = fitz.open(self.fname)
             for i in self.chosenPages:
                 for img in doc.getPageImageList(i):
                     xref = img[0]
                     pix = fitz.Pixmap(doc, xref)
-                    if pix.n < 5:  # this is GRAY or RGB
-                        pix.writePNG("result/%s.png" % (i))
-                    else:  # CMYK: convert to RGB first
-                        pix1 = fitz.Pixmap(fitz.csRGB, pix)
-                        pix1.writePNG("result/%s.png" % (i))
-                        pix1 = None
+                    try:
+                        if pix.n < 5:  # this is GRAY or RGB
+                            pix.writePNG("result/%s.png" % (i))
+                        else:  # CMYK: convert to RGB first
+                            pix1 = fitz.Pixmap(fitz.csRGB, pix)
+                            pix1.writePNG("result/%s.png" % (i))
+                            pix1 = None
+                    except Exception as e:
+                        QMessageBox.warning(self, "Ошибка", "Невозможно преобразовать страницу в картинку!\n" + e.args[0],
+                                             QMessageBox.Ok)
+                        return
                     pix = None
 
 
