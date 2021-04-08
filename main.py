@@ -25,7 +25,6 @@ class App(QMainWindow, Ui_MainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("sad")
         self.openFileButton.clicked.connect(self.add_file)
         self.verticalLayout.addWidget(self.verticalLayoutWidget)
         self.pdfview = QtWebEngineWidgets.QWebEngineView()
@@ -151,24 +150,24 @@ class App(QMainWindow, Ui_MainWindow):
                 print(e)
 
         if (len(self.fname) > 2):
-            doc = fitz.open(self.fname)
-            for i in self.chosenPages:
-                for img in doc.getPageImageList(i):
-                    xref = img[0]
-                    pix = fitz.Pixmap(doc, xref)
+            pdf_document = fitz.open(self.fname)
+            for current_page in self.chosenPages:
+                for image in pdf_document.getPageImageList(current_page - 1):
+                    xref = image[0]
                     try:
+                        pix = fitz.Pixmap(pdf_document, xref)
                         if pix.n < 5:  # this is GRAY or RGB
-                            pix.writePNG("result/%s.png" % (i))
+                            pix.writePNG("result/%s.png" % (current_page - 1))
                         else:  # CMYK: convert to RGB first
                             pix1 = fitz.Pixmap(fitz.csRGB, pix)
-                            pix1.writePNG("result/%s.png" % (i))
+                            pix1.writePNG("result/%s.png" % (current_page - 1))
                             pix1 = None
+                        pix = None
                     except Exception as e:
-                        QMessageBox.warning(self, "Ошибка", "Невозможно преобразовать страницу в картинку!\n" + e.args[0],
-                                             QMessageBox.Ok)
+                        QMessageBox.warning(self, "Ошибка",
+                                            "Невозможно преобразовать страницу в картинку!\n" + e.args[0],
+                                            QMessageBox.Ok)
                         return
-                    pix = None
-
 
 def main():
     app = QApplication(sys.argv)
