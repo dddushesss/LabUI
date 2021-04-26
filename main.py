@@ -117,14 +117,14 @@ class App(QMainWindow, Ui_MainWindow):
                 arr.remove(a)
             elif len(a1) > 1 and len(a1[1]) > 0 and int(a1[0]) < int(a1[1]):
                 for j in range(int(a1[0]), int(a1[1]) + 1):
-                    if (not self.chosenPages.__contains__(j)):
+                    if not self.chosenPages.__contains__(j):
                         self.chosenPages.append(j)
             elif len(a1) > 1 and len(a1[1]) > 0 and int(a1[0]) >= int(a1[1]):
                 for j in range(int(a1[1]), int(a1[0]) + 1):
-                    if (not self.chosenPages.__contains__(j)):
+                    if not self.chosenPages.__contains__(j):
                         self.chosenPages.append(j)
             else:
-                if (not self.chosenPages.__contains__(int(a1[0]))):
+                if not self.chosenPages.__contains__(int(a1[0])):
                     self.chosenPages.append(int(a1[0]))
         text = ""
         for s in arr:
