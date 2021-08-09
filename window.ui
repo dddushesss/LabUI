@@ -112,11 +112,29 @@
      <x>0</x>
      <y>0</y>
      <width>899</width>
-     <height>22</height>
+     <height>18</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>Скриншот</string>
+    </property>
+    <addaction name="action"/>
+    <addaction name="action_2"/>
+   </widget>
+   <addaction name="menu"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="action">
+   <property name="text">
+    <string>Чатсть экрана</string>
+   </property>
+  </action>
+  <action name="action_2">
+   <property name="text">
+    <string>Весь экран</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

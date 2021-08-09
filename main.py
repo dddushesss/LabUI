@@ -3,6 +3,8 @@ import re
 import sys
 
 import fitz
+from PyQt5.QtWebEngineWidgets import QWebEngineSettings
+
 from PyQt5 import QtWebEngineWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
 
@@ -15,11 +17,12 @@ class App(QMainWindow, Ui_MainWindow):
     chosenPages = []
     textBoxChosenPages = []
     checkBoxes = []
-    PDFJS = 'file:///PdfJS/web/viewer.html'
     model = QtGui.QStandardItemModel()
 
     def __init__(self):
         super().__init__()
+
+        self.pdfview = QtWebEngineWidgets.QWebEngineView()
         self.all_dates = {}
         self.setupUi(self)
         self.initUI()
@@ -27,7 +30,6 @@ class App(QMainWindow, Ui_MainWindow):
     def initUI(self):
         self.openFileButton.clicked.connect(self.add_file)
         self.verticalLayout.addWidget(self.verticalLayoutWidget)
-        self.pdfview = QtWebEngineWidgets.QWebEngineView()
         self.verticalLayout.addWidget(self.pdfview)
         self.setAcceptDrops(True)
         self.listView.setModel(self.model)
@@ -63,9 +65,10 @@ class App(QMainWindow, Ui_MainWindow):
 
     def open_file_list(self, index):
         self.fname = self.model.itemFromIndex(index).text()
-        if (len(self.fname) > 0):
+        if len(self.fname) > 0:
             pdf = "file:///" + self.fname
-            self.verticalLayout.itemAt(0).widget().load(QtCore.QUrl.fromUserInput('%s?file=%s' % (self.PDFJS, pdf)))
+            self.pdfview.settings().setAttribute(QWebEngineSettings.PluginsEnabled, True)
+            self.pdfview.load(QtCore.QUrl(pdf))
             self.lineEdit.textChanged[str].connect(self.OnLineEdit_web)
             self.pageCount = len(fitz.open(self.fname))
             self.ConvertButton.clicked.connect(self.Convert_web)
@@ -93,11 +96,11 @@ class App(QMainWindow, Ui_MainWindow):
 
         arr = re.split("[,-]", text)
         sep = re.split("[0-9]", text)
-        while (arr.__contains__("")):
+        while arr.__contains__(""):
             arr.remove("")
-        while (sep.__contains__("")):
+        while sep.__contains__(""):
             sep.remove("")
-        while (sep.__contains__("-")):
+        while sep.__contains__("-"):
             sep.remove("-")
 
         i = 0
