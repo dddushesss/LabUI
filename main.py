@@ -1,12 +1,15 @@
 import os
 import re
 import sys
+import time
 
 import fitz
+import pyscreenshot
 from PyQt5.QtWebEngineWidgets import QWebEngineSettings
 
 from PyQt5 import QtWebEngineWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+import mouse
 
 from qt import Ui_MainWindow
 
@@ -21,13 +24,15 @@ class App(QMainWindow, Ui_MainWindow):
 
     def __init__(self):
         super().__init__()
-
         self.pdfview = QtWebEngineWidgets.QWebEngineView()
         self.all_dates = {}
         self.setupUi(self)
         self.initUI()
 
     def initUI(self):
+        self.action.triggered.connect(self.screenShotPart)
+        self.action_2.triggered.connect(self.screenShot)
+
         self.openFileButton.clicked.connect(self.add_file)
         self.verticalLayout.addWidget(self.verticalLayoutWidget)
         self.verticalLayout.addWidget(self.pdfview)
@@ -43,6 +48,25 @@ class App(QMainWindow, Ui_MainWindow):
             event.accept()
         else:
             event.ignore()
+
+    def screenShot(self):
+        self.hide()
+        im = pyscreenshot.grab()
+        im.save("screenshot.png")
+        self.show()
+
+    def screenShotPart(self):
+        self.hide()
+
+        while not mouse.is_pressed():
+            time.sleep(0.1)
+        mouseGrub = mouse.get_position()
+        while mouse.is_pressed():
+            time.sleep(0.1)
+        mouseGrubExit = mouse.get_position()
+        im = pyscreenshot.grab(bbox=(mouseGrub[0], mouseGrub[1], mouseGrubExit[0], mouseGrubExit[1]))
+        im.save("screenshot.png")
+        self.show()
 
     def dropEvent(self, event):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
@@ -171,6 +195,7 @@ class App(QMainWindow, Ui_MainWindow):
                                             "Невозможно преобразовать страницу в картинку!\n" + e.args[0],
                                             QMessageBox.Ok)
                         return
+
 
 def main():
     app = QApplication(sys.argv)
