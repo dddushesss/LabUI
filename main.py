@@ -1,17 +1,82 @@
 import os
 import re
 import sys
-import time
 
 import fitz
 import pyscreenshot
-from PyQt5.QtWebEngineWidgets import QWebEngineSettings
-
+from PIL import Image
 from PyQt5 import QtWebEngineWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
-import mouse
+from PyQt5.QtCore import Qt, QPoint, QRect
+from PyQt5.QtGui import QPixmap, QPainter
+from PyQt5.QtWebEngineWidgets import QWebEngineSettings
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout, QDesktopWidget
 
 from qt import Ui_MainWindow
+
+
+class ScreenShotWindow(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout()
+        centerPoint = QDesktopWidget().availableGeometry().topLeft()
+        qtRectangle = self.frameGeometry()
+        qtRectangle.moveCenter(centerPoint)
+        self.move(qtRectangle.topLeft())
+        self.setFixedHeight(1080)
+        self.setFixedWidth(1920)
+        self.setWindowFlags(Qt.SplashScreen | Qt.FramelessWindowHint)
+        self.setLayout(layout)
+        self.pix = QPixmap(QtGui.QPixmap("screenshot_temp.png"))
+
+        self.RectBegin, self.RectDest = QPoint(), QPoint
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setPen(Qt.yellow)
+        painter.drawPixmap(QPoint(), self.pix)
+        if not self.RectBegin.isNull() and not self.RectDest.isNull():
+            rect = QRect(self.RectBegin, self.RectDest)
+            painter.drawRect(rect.normalized())
+
+    def mousePressEvent(self, e: QtGui.QMouseEvent):
+        if e.buttons() & Qt.LeftButton:
+            self.RectBegin = e.pos()
+            self.RectDest = self.RectBegin
+            self.update()
+
+    def mouseMoveEvent(self, e: QtGui.QMouseEvent):
+        if e.buttons() & Qt.LeftButton:
+            self.RectDest = e.pos()
+            self.update()
+
+    def mouseReleaseEvent(self, e: QtGui.QMouseEvent):
+        if e.button() & Qt.LeftButton:
+            rect = QRect(self.RectBegin, self.RectDest)
+            painter = QPainter(self.pix)
+            painter.drawRect(rect.normalized())
+            im = Image.open("screenshot_temp.png")
+            if self.RectBegin.x() < self.RectDest.x():
+                if self.RectBegin.y() < self.RectDest.y():
+                    x, y, xd, yd = self.RectBegin.x(), self.RectBegin.y(), self.RectDest.x(), self.RectDest.y()
+                elif self.RectBegin.y() > self.RectDest.y():
+                    x, y, xd, yd = self.RectBegin.x(), self.RectDest.y(), self.RectDest.x(), self.RectBegin.y()
+            elif self.RectBegin.x() > self.RectDest.x():
+                if self.RectBegin.y() < self.RectDest.y():
+                    x, y, xd, yd = self.RectDest.x(), self.RectBegin.y(), self.RectBegin.x(), self.RectDest.y()
+                elif self.RectBegin.y() > self.RectDest.y():
+                    x, y, xd, yd = self.RectDest.x(), self.RectDest.y(), self.RectBegin.x(), self.RectBegin.y()
+
+            im.crop((x, y, xd, yd)).save("screenshot.png", quality=100)
+            self.RectBegin, self.RectDest = QPoint(), QPoint
+            os.remove("screenshot_temp.png")
+            self.destroy(destroyWindow=True)
+            self.close()
+
+    def keyPressEvent(self, e: QtGui.QKeyEvent):
+        if e.key() & Qt.Key_Escape:
+            os.remove("screenshot_temp.png")
+            self.close()
 
 
 class App(QMainWindow, Ui_MainWindow):
@@ -32,7 +97,7 @@ class App(QMainWindow, Ui_MainWindow):
     def initUI(self):
         self.action.triggered.connect(self.screenShotPart)
         self.action_2.triggered.connect(self.screenShot)
-
+        self.w = None
         self.openFileButton.clicked.connect(self.add_file)
         self.verticalLayout.addWidget(self.verticalLayoutWidget)
         self.verticalLayout.addWidget(self.pdfview)
@@ -52,21 +117,17 @@ class App(QMainWindow, Ui_MainWindow):
     def screenShot(self):
         self.hide()
         im = pyscreenshot.grab()
+
         im.save("screenshot.png")
         self.show()
 
     def screenShotPart(self):
         self.hide()
-
-        while not mouse.is_pressed():
-            time.sleep(0.1)
-        mouseGrub = mouse.get_position()
-        while mouse.is_pressed():
-            time.sleep(0.1)
-        mouseGrubExit = mouse.get_position()
-        im = pyscreenshot.grab(bbox=(mouseGrub[0], mouseGrub[1], mouseGrubExit[0], mouseGrubExit[1]))
-        im.save("screenshot.png")
+        im = pyscreenshot.grab()
+        im.save("screenshot_temp.png")
         self.show()
+        self.w = ScreenShotWindow()
+        self.w.show()
 
     def dropEvent(self, event):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
@@ -95,7 +156,7 @@ class App(QMainWindow, Ui_MainWindow):
             self.pdfview.load(QtCore.QUrl(pdf))
             self.lineEdit.textChanged[str].connect(self.OnLineEdit_web)
             self.pageCount = len(fitz.open(self.fname))
-            self.ConvertButton.clicked.connect(self.Convert_web)
+            self.ConvertButton.clicked.connect(self.Convert)
 
     def add_file(self):
         fname = QFileDialog.getOpenFileNames(self, 'Open file',
@@ -157,7 +218,7 @@ class App(QMainWindow, Ui_MainWindow):
         for s in arr:
             if len(s) > 0:
                 text += s
-            if (len(sep) >= i + 1):
+            if len(sep) >= i + 1:
                 text += sep[i]
             i += 1
 
@@ -166,7 +227,7 @@ class App(QMainWindow, Ui_MainWindow):
         for choise in self.chosenPages:
             self.textBrowser.append(str(choise))
 
-    def Convert_web(self):
+    def Convert(self):
         folder = "result"
         for the_file in os.listdir(folder):
             file_path = os.path.join(folder, the_file)
@@ -176,7 +237,7 @@ class App(QMainWindow, Ui_MainWindow):
             except Exception as e:
                 print(e)
 
-        if (len(self.fname) > 2):
+        if len(self.fname) > 2:
             pdf_document = fitz.open(self.fname)
             for current_page in self.chosenPages:
                 for image in pdf_document.getPageImageList(current_page - 1):
@@ -195,14 +256,6 @@ class App(QMainWindow, Ui_MainWindow):
                                             "Невозможно преобразовать страницу в картинку!\n" + e.args[0],
                                             QMessageBox.Ok)
                         return
-
-
-def main():
-    app = QApplication(sys.argv)
-    window = App()
-
-    window.show()
-    app.exec()
 
 
 if __name__ == '__main__':
