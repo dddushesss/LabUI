@@ -138,7 +138,7 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="action">
    <property name="text">
-    <string>Чатсть экрана</string>
+    <string>Чатсть экрана    Ctrl+F1</string>
    </property>
   </action>
   <action name="action_2">
@@ -148,7 +148,7 @@
   </action>
   <action name="OpenFile">
    <property name="text">
-    <string>Открыть</string>
+    <string>Открыть   Ctrl+O</string>
    </property>
   </action>
   <action name="Settings">
