@@ -70,11 +70,13 @@ class ScreenShotWindow(QWidget):
             painter = QPainter(self.pix)
             painter.drawRect(rect.normalized())
             im = Image.open("screenshot_temp.png")
-            if abs(self.RectBegin.x() - self.RectDest.x()) < 10 or abs(self.RectBegin.y() - self.RectDest.y()):
+            if abs(self.RectBegin.x() - self.RectDest.x()) < 10 or abs(self.RectBegin.y() - self.RectDest.y()) < 10:
                 QMessageBox.warning(self, "Ошибка",
                                     "Слишком маленький скриншот!",
                                     QMessageBox.Ok)
+                self.destroy(destroyWindow=True)
                 self.close()
+                return
             if self.RectBegin.x() < self.RectDest.x():
                 if self.RectBegin.y() < self.RectDest.y():
                     x, y, xd, yd = self.RectBegin.x(), self.RectBegin.y(), self.RectDest.x(), self.RectDest.y()
@@ -108,7 +110,7 @@ class App(QMainWindow, Ui_MainWindow):
 
     def __init__(self):
         super().__init__()
-        self.fname = self.model.itemFromIndex(index).text()
+
         self.settings_window = SettingsWindow()
         self.keybinder = keybinder
         self.screen_shot_window = None
@@ -157,7 +159,7 @@ class App(QMainWindow, Ui_MainWindow):
         if self.settings_window.toTray:
             e.ignore()
             self.hide()
-            self.tray_icon.showMessage("LanUI", "Программа свёрнута в трей", QSystemTrayIcon.Information, 2000)
+            self.tray_icon.showMessage("LanUI", "Программа свёрнута в трей", QSystemTrayIcon.Information, 500)
 
     def dragEnterEvent(self, event):
         data = event.mimeData()
@@ -201,7 +203,8 @@ class App(QMainWindow, Ui_MainWindow):
             self.pdfview = QtWebEngineWidgets.QWebEngineView()
             self.verticalLayout.addWidget(self.pdfview)
 
-    def open_file_list(self):
+    def open_file_list(self, index):
+        self.fname = self.model.itemFromIndex(index).text()
         if len(self.fname) > 0:
             pdf = "file:///" + self.fname
             self.pdfview.settings().setAttribute(QWebEngineSettings.PluginsEnabled, True)
@@ -325,8 +328,11 @@ if __name__ == '__main__':
     window = App()
     keybinder.init()
     keybinder.register_hotkey(window.winId(), "Ctrl+F1", window.screen_shot_part)
+    keybinder.register_hotkey(window.winId(), "Ctrl+o", window.add_file)
     win_event_filter = WinEventFilter(keybinder)
     event_dispatcher = QAbstractEventDispatcher.instance()
     event_dispatcher.installNativeEventFilter(win_event_filter)
     window.show()
-    sys.exit(app.exec())
+    app.exec_()
+    keybinder.unregister_hotkey(window.winId(), "Ctrl+F1")
+    keybinder.unregister_hotkey(window.winId(), "Ctrl+o")
