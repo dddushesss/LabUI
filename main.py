@@ -6,12 +6,27 @@ import fitz
 import pyscreenshot
 from PIL import Image
 from PyQt5 import QtWebEngineWidgets, QtCore, QtGui
-from PyQt5.QtCore import Qt, QPoint, QRect
-from PyQt5.QtGui import QPixmap, QPainter
+from PyQt5.QtCore import Qt, QPoint, QRect, QAbstractNativeEventFilter, QAbstractEventDispatcher
+from PyQt5.QtGui import QPixmap, QPainter, QIcon
 from PyQt5.QtWebEngineWidgets import QWebEngineSettings
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout, QDesktopWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QWidget, QVBoxLayout, QDesktopWidget, \
+    QSystemTrayIcon, QMenu, QAction, qApp
+from pyqtkeybind import keybinder
 
 from qt import Ui_MainWindow
+from settings import Ui_Form
+
+
+class SettingsWindow(QWidget, Ui_Form):
+    def __init__(self):
+        self.toTray = True
+        super(SettingsWindow, self).__init__()
+        self.setupUi(self)
+        self.ToTrayCheck.setChecked(self.toTray)
+        self.ToTrayCheck.toggled.connect(self.check_changed)
+
+    def check_changed(self):
+        self.toTray = not self.toTray
 
 
 class ScreenShotWindow(QWidget):
@@ -19,10 +34,10 @@ class ScreenShotWindow(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout()
-        centerPoint = QDesktopWidget().availableGeometry().topLeft()
-        qtRectangle = self.frameGeometry()
-        qtRectangle.moveCenter(centerPoint)
-        self.move(qtRectangle.topLeft())
+        center_point = QDesktopWidget().availableGeometry().topLeft()
+        qt_rectangle = self.frameGeometry()
+        qt_rectangle.moveCenter(center_point)
+        self.move(qt_rectangle.topLeft())
         self.setFixedHeight(1080)
         self.setFixedWidth(1920)
         self.setWindowFlags(Qt.SplashScreen | Qt.FramelessWindowHint)
@@ -89,22 +104,55 @@ class App(QMainWindow, Ui_MainWindow):
 
     def __init__(self):
         super().__init__()
+        self.settings_window = SettingsWindow()
+        self.keybinder = keybinder
+        self.screen_shot_window = None
+        self.tray_icon = QSystemTrayIcon(self)
         self.pdfview = QtWebEngineWidgets.QWebEngineView()
         self.all_dates = {}
         self.setupUi(self)
-        self.initUI()
+        self.init_ui()
 
-    def initUI(self):
-        self.action.triggered.connect(self.screenShotPart)
-        self.action_2.triggered.connect(self.screenShot)
-        self.w = None
+    def init_ui(self):
+
+        self.action.triggered.connect(self.screen_shot_part)
+        self.action_2.triggered.connect(self.screen_shot)
+        self.OpenFile.triggered.connect(self.add_file)
+        self.Exit.triggered.connect(qApp.quit)
+        self.Settings.triggered.connect(self.show_settings)
+
         self.openFileButton.clicked.connect(self.add_file)
         self.verticalLayout.addWidget(self.verticalLayoutWidget)
         self.verticalLayout.addWidget(self.pdfview)
         self.setAcceptDrops(True)
         self.listView.setModel(self.model)
         self.listView.clicked[QtCore.QModelIndex].connect(self.open_file_list)
-        self.Delete.clicked.connect(self.deleteItem)
+        self.Delete.clicked.connect(self.delete_item)
+        tray_menu = QMenu()
+
+        show_action = QAction("Развернуть", self)
+        show_action.triggered.connect(self.show)
+        exit_action = QAction("Выход", self)
+        exit_action.triggered.connect(qApp.quit)
+        screenshot_action = QAction("Скриншот", self)
+        screenshot_action.triggered.connect(self.screen_shot_part)
+
+        tray_menu.addAction(show_action)
+        tray_menu.addAction(screenshot_action)
+        tray_menu.addSeparator()
+        tray_menu.addAction(exit_action)
+        self.tray_icon.setIcon(QIcon("icon.jpg"))
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
+    def show_settings(self):
+        self.settings_window.show()
+
+    def closeEvent(self, e: QtGui.QCloseEvent):
+        if self.settings_window.toTray:
+            e.ignore()
+            self.hide()
+            self.tray_icon.showMessage("LanUI", "Программа свёрнута в трей", QSystemTrayIcon.Information, 2000)
 
     def dragEnterEvent(self, event):
         data = event.mimeData()
@@ -114,20 +162,20 @@ class App(QMainWindow, Ui_MainWindow):
         else:
             event.ignore()
 
-    def screenShot(self):
+    def screen_shot(self):
         self.hide()
         im = pyscreenshot.grab()
 
         im.save("screenshot.png")
         self.show()
 
-    def screenShotPart(self):
+    def screen_shot_part(self):
         self.hide()
         im = pyscreenshot.grab()
         im.save("screenshot_temp.png")
         self.show()
-        self.w = ScreenShotWindow()
-        self.w.show()
+        self.screen_shot_window = ScreenShotWindow()
+        self.screen_shot_window.show()
 
     def dropEvent(self, event):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
@@ -136,7 +184,7 @@ class App(QMainWindow, Ui_MainWindow):
                 iteam = QtGui.QStandardItem(f)
                 self.model.appendRow(iteam)
 
-    def deleteItem(self):
+    def delete_item(self):
         for index in self.listView.selectedIndexes():
             self.model.removeRow(index.row())
         if len(self.listView.selectedIndexes()) > 0:
@@ -154,9 +202,9 @@ class App(QMainWindow, Ui_MainWindow):
             pdf = "file:///" + self.fname
             self.pdfview.settings().setAttribute(QWebEngineSettings.PluginsEnabled, True)
             self.pdfview.load(QtCore.QUrl(pdf))
-            self.lineEdit.textChanged[str].connect(self.OnLineEdit_web)
+            self.lineEdit.textChanged[str].connect(self.on_line_edit)
             self.pageCount = len(fitz.open(self.fname))
-            self.ConvertButton.clicked.connect(self.Convert)
+            self.ConvertButton.clicked.connect(self.convert)
 
     def add_file(self):
         fname = QFileDialog.getOpenFileNames(self, 'Open file',
@@ -167,7 +215,7 @@ class App(QMainWindow, Ui_MainWindow):
                 item = QtGui.QStandardItem(name)
                 self.model.appendRow(item)
 
-    def OnLineEdit_web(self):
+    def on_line_edit(self):
         text = self.lineEdit.text()
         text = re.sub("\s", "", text)
         text = re.sub("--", "-", text)
@@ -227,7 +275,7 @@ class App(QMainWindow, Ui_MainWindow):
         for choise in self.chosenPages:
             self.textBrowser.append(str(choise))
 
-    def Convert(self):
+    def convert(self):
         folder = "result"
         for the_file in os.listdir(folder):
             file_path = os.path.join(folder, the_file)
@@ -258,8 +306,23 @@ class App(QMainWindow, Ui_MainWindow):
                         return
 
 
+class WinEventFilter(QAbstractNativeEventFilter):
+    def __init__(self, keybinder):
+        self.keybinder = keybinder
+        super().__init__()
+
+    def nativeEventFilter(self, eventType, message):
+        ret = self.keybinder.handler(eventType, message)
+        return ret, 0
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = App()
+    keybinder.init()
+    keybinder.register_hotkey(window.winId(), "Ctrl+F1", window.screen_shot_part)
+    win_event_filter = WinEventFilter(keybinder)
+    event_dispatcher = QAbstractEventDispatcher.instance()
+    event_dispatcher.installNativeEventFilter(win_event_filter)
     window.show()
     sys.exit(app.exec())
