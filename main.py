@@ -35,6 +35,8 @@ class ScreenShotWindow(QWidget):
         super().__init__()
         layout = QVBoxLayout()
         self.move(0, 0)
+        QApplication.setOverrideCursor(Qt.CrossCursor)
+
 
         self.setFixedHeight(QDesktopWidget().screenGeometry().height())
         self.setFixedWidth(QDesktopWidget().screenGeometry().width())
@@ -76,6 +78,7 @@ class ScreenShotWindow(QWidget):
                                     QMessageBox.Ok)
                 self.destroy(destroyWindow=True)
                 self.close()
+                QApplication.restoreOverrideCursor()
                 return
             if self.RectBegin.x() < self.RectDest.x():
                 if self.RectBegin.y() < self.RectDest.y():
@@ -91,6 +94,7 @@ class ScreenShotWindow(QWidget):
             im.crop((x, y, xd, yd)).save("screenshot.png", quality=100)
             self.RectBegin, self.RectDest = QPoint(), QPoint
             os.remove("screenshot_temp.png")
+            QApplication.restoreOverrideCursor()
             self.destroy(destroyWindow=True)
             self.close()
 
