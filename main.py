@@ -34,12 +34,10 @@ class ScreenShotWindow(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout()
-        center_point = QDesktopWidget().availableGeometry().topLeft()
-        qt_rectangle = self.frameGeometry()
-        qt_rectangle.moveCenter(center_point)
-        self.move(qt_rectangle.topLeft())
-        self.setFixedHeight(1080)
-        self.setFixedWidth(1920)
+        self.move(0, 0)
+
+        self.setFixedHeight(QDesktopWidget().screenGeometry().height())
+        self.setFixedWidth(QDesktopWidget().screenGeometry().width())
         self.setWindowFlags(Qt.SplashScreen | Qt.FramelessWindowHint)
         self.setLayout(layout)
         self.pix = QPixmap(QtGui.QPixmap("screenshot_temp.png"))
@@ -66,11 +64,17 @@ class ScreenShotWindow(QWidget):
             self.update()
 
     def mouseReleaseEvent(self, e: QtGui.QMouseEvent):
+
         if e.button() & Qt.LeftButton:
             rect = QRect(self.RectBegin, self.RectDest)
             painter = QPainter(self.pix)
             painter.drawRect(rect.normalized())
             im = Image.open("screenshot_temp.png")
+            if abs(self.RectBegin.x() - self.RectDest.x()) < 10 or abs(self.RectBegin.y() - self.RectDest.y()):
+                QMessageBox.warning(self, "Ошибка",
+                                    "Слишком маленький скриншот!",
+                                    QMessageBox.Ok)
+                self.close()
             if self.RectBegin.x() < self.RectDest.x():
                 if self.RectBegin.y() < self.RectDest.y():
                     x, y, xd, yd = self.RectBegin.x(), self.RectBegin.y(), self.RectDest.x(), self.RectDest.y()
@@ -104,6 +108,7 @@ class App(QMainWindow, Ui_MainWindow):
 
     def __init__(self):
         super().__init__()
+        self.fname = self.model.itemFromIndex(index).text()
         self.settings_window = SettingsWindow()
         self.keybinder = keybinder
         self.screen_shot_window = None
@@ -190,14 +195,13 @@ class App(QMainWindow, Ui_MainWindow):
         if len(self.listView.selectedIndexes()) > 0:
             i = self.model.index(0, 0)
             self.listView.setCurrentIndex(i)
-            self.open_file_list(i)
+            self.open_file_list()
         else:
             self.verticalLayout.removeWidget(self.pdfview)
             self.pdfview = QtWebEngineWidgets.QWebEngineView()
             self.verticalLayout.addWidget(self.pdfview)
 
-    def open_file_list(self, index):
-        self.fname = self.model.itemFromIndex(index).text()
+    def open_file_list(self):
         if len(self.fname) > 0:
             pdf = "file:///" + self.fname
             self.pdfview.settings().setAttribute(QWebEngineSettings.PluginsEnabled, True)
@@ -210,7 +214,7 @@ class App(QMainWindow, Ui_MainWindow):
         fname = QFileDialog.getOpenFileNames(self, 'Open file',
                                              'c:\\', "PDF (*.pdf)")
 
-        if (len(fname[0]) > 0):
+        if len(fname[0]) > 0:
             for name in fname[0]:
                 item = QtGui.QStandardItem(name)
                 self.model.appendRow(item)
@@ -311,8 +315,8 @@ class WinEventFilter(QAbstractNativeEventFilter):
         self.keybinder = keybinder
         super().__init__()
 
-    def nativeEventFilter(self, eventType, message):
-        ret = self.keybinder.handler(eventType, message)
+    def nativeEventFilter(self, event_type, message):
+        ret = self.keybinder.handler(event_type, message)
         return ret, 0
 
 
