@@ -91,7 +91,7 @@ class ScreenShotWindow(QWidget):
                 elif self.RectBegin.y() > self.RectDest.y():
                     x, y, xd, yd = self.RectDest.x(), self.RectDest.y(), self.RectBegin.x(), self.RectBegin.y()
 
-            im.crop((x, y, xd, yd)).save("screenshot.png", quality=100)
+            im.crop((x, y, xd, yd)).save("result/screenshot.png", quality=100)
             self.RectBegin, self.RectDest = QPoint(), QPoint
             os.remove("screenshot_temp.png")
             QApplication.restoreOverrideCursor()
